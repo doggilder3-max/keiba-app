@@ -52,15 +52,26 @@ def check_match(row):
 
     # 馬番 = 月+日（合計値）
     total = month + day
+    match_month_day = None
     if num == total:
-        matches.append(f"誕生日の月+日と馬番が一致（{month}+{day}={total}）")
+        match_month_day = f"誕生日の月+日と馬番が一致（{month}+{day}={total}）"
 
     # 馬番 = 誕生日の各桁合計（計算式表示付き）
     digit_parts = [int(d) for d in str(month) + str(day)]
     digit_sum = sum(digit_parts)
+    match_digit_sum = None
     if num == digit_sum:
         parts_str = "＋".join(str(d) for d in digit_parts)
-        matches.append(f"誕生日の数字合計と馬番が一致（{parts_str}={digit_sum}）")
+        match_digit_sum = f"誕生日の数字合計と馬番が一致（{parts_str}={digit_sum}）"
+
+    # 👉 ここで重複チェック
+    if match_month_day and match_digit_sum and match_month_day.split("（")[1] == match_digit_sum.split("（")[1]:
+        matches.append(match_month_day)  # 片方だけ残す
+    else:
+        if match_month_day:
+            matches.append(match_month_day)
+        if match_digit_sum:
+            matches.append(match_digit_sum)
 
     # 馬番 = 日そのもの
     if num == day:
