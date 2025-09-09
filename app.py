@@ -23,11 +23,11 @@ def calc_digits(birthday):
     try:
         year, month, day = map(int, str(birthday).split("/"))
     except:
-        return None, None, None
+        return None, None, None, None, None
 
     total = month + day
     digit_sum = sum(int(d) for d in str(month) + str(day))
-    return total, digit_sum, day
+    return total, digit_sum, day, month, day  # ← 月と日も返す
 
 
 # -------------------------------
@@ -46,7 +46,7 @@ def check_match(row):
     except:
         pass
 
-    total, digit_sum, day = calc_digits(row["誕生日"])
+    total, digit_sum, day, month, day_val = calc_digits(row["誕生日"])
     if total is None:
         return None
 
@@ -58,19 +58,19 @@ def check_match(row):
 
     # 馬番 = 月+日
     if num == total:
-        matches.append(f"馬番と誕生日の合計が一致（馬番={num}, {month}月+{day}日→{total}）")
+        matches.append(f"馬番と誕生日の合計が一致（馬番={num}, {month}月+{day_val}日→{total}）")
 
     # 馬番 = 誕生日の数字合計
     if num == digit_sum:
-        matches.append(f"馬番と誕生日の数字合計が一致（馬番={num}, {month}{day}→{digit_sum}）")
+        matches.append(f"馬番と誕生日の数字合計が一致（馬番={num}, {month}{day_val}→{digit_sum}）")
 
     # 馬番 = 日
-    if num == day:
-        matches.append(f"馬番と誕生日の日が一致（馬番={num}, 日={day}）")
+    if num == day_val:
+        matches.append(f"馬番と誕生日の日が一致（馬番={num}, 日={day_val}）")
 
     # 馬番 = 日の一桁
-    if num == (day % 10):
-        matches.append(f"馬番と誕生日の日の一桁が一致（馬番={num}, 一桁={day % 10}）")
+    if num == (day_val % 10):
+        matches.append(f"馬番と誕生日の日の一桁が一致（馬番={num}, 一桁={day_val % 10}）")
 
     return matches if matches else None
 
@@ -83,14 +83,14 @@ for _, row in df.iterrows():
     if not matches:
         continue  # 一致がない馬はスキップ
 
-    total, digit_sum, day = calc_digits(row["誕生日"])
+    total, digit_sum, day, month, day_val = calc_digits(row["誕生日"])
 
     with st.container():
         st.markdown(f"## 🐴 {row['馬名']}")
         st.write(f"📍 レース名: {row['レース名']}")
         st.write(f"🔢 馬番: {row['馬番']}")
         st.write(f"🏁 前走着順: {row['前走着順']}")
-        st.write(f"🎂 誕生日: {row['誕生日']} → 合計:{total}, 一桁:{digit_sum}, 日:{day}")
+        st.write(f"🎂 誕生日: {row['誕生日']} → 合計:{total}, 一桁:{digit_sum}, 日:{day_val}")
 
         for match in matches:
             st.success(match)
