@@ -45,7 +45,7 @@ def check_match(row):
 
 @st.cache_data(ttl=60)
 def load_data():
-    url = "YOUR_CSV_URL"  # ここに正しいCSV形式のリンクを貼ってください
+    url = "https://docs.google.com/spreadsheets/d/e/2PACX-1v…/export?format=csv&gid=0"
     return pd.read_csv(url)
 
 df = load_data()
@@ -66,7 +66,6 @@ for _, row in df.iterrows():
                 </div>
                 """, unsafe_allow_html=True
             )
-
             for match in matches:
                 st.markdown(
                     f"""
@@ -76,4 +75,3 @@ for _, row in df.iterrows():
                     </div>
                     """, unsafe_allow_html=True
                 )
-
