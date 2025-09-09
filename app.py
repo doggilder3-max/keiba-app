@@ -16,29 +16,43 @@ def load_data():
 df = load_data()
 
 # -------------------------------
+# 🔽 誕生日のパース関数
+# -------------------------------
+def parse_birthday(birthday):
+    if pd.isna(birthday):
+        return None, None
+    try:
+        # pandasで日付として解釈
+        date = pd.to_datetime(birthday, errors="coerce")
+        if pd.isna(date):
+            return None, None
+        return date.month, date.day
+    except:
+        return None, None
+
+# -------------------------------
 # 🔽 判定ロジック
 # -------------------------------
 def check_match(row):
     horse = row["馬名"]
 
-    # 馬番を整数に変換（失敗したらスキップ）
+    # 馬番
     try:
         num = int(row["馬番"])
-    except (ValueError, TypeError):
+    except:
         return None
 
-    # 前走着順も安全に変換
+    # 前走着順
+    prev = None
     try:
         prev = int(row["前走着順"])
-    except (ValueError, TypeError):
-        prev = None
-
-    # 誕生日処理
-    birthday = str(row["誕生日"]).replace("月", "-").replace("日", "").strip()
-    try:
-        month, day = map(int, birthday.split("-"))
     except:
-        return None  # 形式が違う場合スキップ
+        pass
+
+    # 誕生日
+    month, day = parse_birthday(row["誕生日"])
+    if not month or not day:
+        return None
 
     matches = []
 
@@ -46,15 +60,15 @@ def check_match(row):
     if prev and num == prev:
         matches.append(f"{horse} → ✅ 前走着順と馬番が一致（馬番={num}, 前走着順={prev}）")
 
-    # 馬番 = 月+日（合計値）
+    # 馬番 = 月+日
     total = month + day
     if num == total:
         matches.append(f"{horse} → ✅ 誕生日の月+日と馬番が一致（馬番={num}, {month}+{day}={total}）")
 
     # 馬番 = 誕生日の各桁合計
-    digit_sum = sum(int(d) for d in str(month) + str(day))
+    digit_sum = sum(int(d) for d in f"{month}{day}")
     if num == digit_sum:
-        matches.append(f"{horse} → ✅ 誕生日の数字合計と馬番が一致（馬番={num}, {month}+{''.join(list(str(day)))}={digit_sum}）")
+        matches.append(f"{horse} → ✅ 誕生日の数字合計と馬番が一致（馬番={num}, 合計={digit_sum}）")
 
     # 馬番 = 日そのもの
     if num == day:
@@ -62,7 +76,7 @@ def check_match(row):
 
     # 馬番 = 日の一桁
     if num == (day % 10):
-        matches.append(f"{horse} → ✅ 誕生日の日の一桁と馬番が一致（馬番={num}, 日の一桁={day % 10}）")
+        matches.append(f"{horse} → ✅ 誕生日の日の一桁と馬番が一致（馬番={num}, {day % 10}）")
 
     return matches if matches else None
 
