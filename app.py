@@ -27,24 +27,22 @@ def calc_digits(birthday):
 
     total = month + day
     digit_sum = sum(int(d) for d in str(month) + str(day))
-    return total, digit_sum, day, month, day  # ← 月と日も返す
+    return total, digit_sum, day, month, day  # 月と日も返す
 
 
 # -------------------------------
 # 🔽 判定ロジック
 # -------------------------------
 def check_match(row):
-    horse = row["馬名"]
     try:
-        num = int(row["馬番"])
+        num = int(float(row["馬番"]))  # ← 小数を整数に変換
     except:
         return None
 
-    prev = None
     try:
         prev = int(row["前走着順"])
     except:
-        pass
+        prev = None
 
     total, digit_sum, day, month, day_val = calc_digits(row["誕生日"])
     if total is None:
@@ -52,23 +50,18 @@ def check_match(row):
 
     matches = []
 
-    # 馬番 = 前走着順
     if prev and num == prev:
         matches.append(f"馬番と前走着順が一致（馬番={num}, 前走着順={prev}）")
 
-    # 馬番 = 月+日
     if num == total:
         matches.append(f"馬番と誕生日の合計が一致（馬番={num}, {month}月+{day_val}日→{total}）")
 
-    # 馬番 = 誕生日の数字合計
     if num == digit_sum:
         matches.append(f"馬番と誕生日の数字合計が一致（馬番={num}, {month}{day_val}→{digit_sum}）")
 
-    # 馬番 = 日
     if num == day_val:
         matches.append(f"馬番と誕生日の日が一致（馬番={num}, 日={day_val}）")
 
-    # 馬番 = 日の一桁
     if num == (day_val % 10):
         matches.append(f"馬番と誕生日の日の一桁が一致（馬番={num}, 一桁={day_val % 10}）")
 
@@ -81,16 +74,17 @@ def check_match(row):
 for _, row in df.iterrows():
     matches = check_match(row)
     if not matches:
-        continue  # 一致がない馬はスキップ
+        continue
 
-    total, digit_sum, day, month, day_val = calc_digits(row["誕生日"])
+    num = int(float(row["馬番"]))  # 小数対策
 
     with st.container():
         st.markdown(f"## 🐴 {row['馬名']}")
         st.write(f"📍 レース名: {row['レース名']}")
-        st.write(f"🔢 馬番: {row['馬番']}")
+        st.write(f"🔢 馬番: {num}")
         st.write(f"🏁 前走着順: {row['前走着順']}")
-        st.write(f"🎂 誕生日: {row['誕生日']} → 合計:{total}, 一桁:{digit_sum}, 日:{day_val}")
+        st.write(f"🎂 誕生日: {row['誕生日']}")  # ← シンプルに誕生日そのままだけ
 
+        # 一致内容だけ出力
         for match in matches:
             st.success(match)
