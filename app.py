@@ -22,13 +22,13 @@ def check_match(row):
     horse = str(row.get("馬名", "不明"))
     num = None
     try:
-        num = int(row["馬番"])
+        num = int(float(row["馬番"]))  # float → int 変換
     except:
         return None
 
     prev = None
     try:
-        prev = int(row["前走着順"])
+        prev = int(float(row["前走着順"]))
     except:
         pass
 
@@ -71,6 +71,7 @@ def check_match(row):
 
     return matches if matches else None
 
+
 # -------------------------------
 # 🔽 レースごとに表示（カード形式）
 # -------------------------------
@@ -82,13 +83,16 @@ for race, group in df.groupby("レース名"):
         results = check_match(row)
         if results:
             any_match = True
+            horse_num = int(float(row["馬番"])) if not pd.isna(row["馬番"]) else "?"
+            prev_num = int(float(row["前走着順"])) if not pd.isna(row["前走着順"]) else "?"
+
             with st.container():
                 st.markdown(
                     f"""
                     <div style='padding:20px; margin:15px 0; border-radius:15px; background-color:#2c2c2c; box-shadow:0 3px 8px rgba(0,0,0,0.3)'>
                         <h3 style='color:#f8f8f8;'>🐴 {row['馬名']}</h3>
-                        <p style='color:#bbbbbb;'>🔢 馬番: <b style='color:#ffffff;'>{row['馬番']}</b></p>
-                        <p style='color:#bbbbbb;'>🏁 前走着順: <b style='color:#ffffff;'>{row['前走着順']}</b></p>
+                        <p style='color:#bbbbbb;'>🔢 馬番: <b style='color:#ffffff;'>{horse_num}</b></p>
+                        <p style='color:#bbbbbb;'>🏁 前走着順: <b style='color:#ffffff;'>{prev_num}</b></p>
                         <p style='color:#bbbbbb;'>🎂 誕生日: <b style='color:#ffffff;'>{row['誕生日']}</b></p>
                         <div style='margin-top:10px;'>
                             {''.join([f"<div style='padding:10px; margin:6px 0; border-radius:8px; background-color:#20603c; color:#e6ffe6; font-weight:bold;'>{m}</div>" for m in results])}
@@ -100,4 +104,3 @@ for race, group in df.groupby("レース名"):
 
     if not any_match:
         st.info("一致する馬は見つかりませんでした。")
-
