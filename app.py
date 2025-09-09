@@ -11,24 +11,19 @@ def calc_digits(birthday):
     try:
         date = datetime.strptime(birthday, "%Y/%m/%d")
     except:
-        return None, None, None, None, None
+        return None, None, None, None
 
     # 西暦は無視 → 月+日だけ
     md_str = f"{date.month}{date.day}"
     digits = [int(d) for d in md_str]
     total = sum(digits)
 
-    # 途中式（例: 1+2+7）
-    formula = "+".join(str(d) for d in digits)
-
-    # 一桁になるまで分解
+    # 一桁まで分解
     digit_sum = total
-    steps = []
     while digit_sum >= 10:
-        steps.append("+".join(str(d) for d in str(digit_sum)))
         digit_sum = sum(int(d) for d in str(digit_sum))
 
-    return total, digit_sum, date.day, date.month, formula, steps
+    return total, digit_sum, date.day, date.month
 
 
 # ====== 判定関数 ======
@@ -43,7 +38,7 @@ def check_match(row):
     except:
         prev = None
 
-    total, digit_sum, day, month, formula, steps = calc_digits(row["誕生日"])
+    total, digit_sum, day, month = calc_digits(row["誕生日"])
     if total is None:
         return None
 
@@ -53,13 +48,10 @@ def check_match(row):
         matches.append(f"🏆 馬番と前走着順が一致（馬番={num}, 前走着順={prev}）")
 
     if num == total:
-        matches.append(f"🎯 馬番と誕生日の合計が一致（馬番={num}, {formula}={total}）")
+        matches.append(f"🎯 馬番と誕生日の合計が一致（馬番={num}, 月日合計={total}）")
 
     if num == digit_sum:
-        if steps:
-            matches.append(f"✨ 馬番と誕生日の数字合計が一致（馬番={num}, {formula}={total} → {' → '.join(steps)} → {digit_sum}）")
-        else:
-            matches.append(f"✨ 馬番と誕生日の数字合計が一致（馬番={num}, {formula}={digit_sum}）")
+        matches.append(f"✨ 馬番と誕生日の数字合計が一致（馬番={num}, 一桁合計={digit_sum}）")
 
     if num == day:
         matches.append(f"📅 馬番と誕生日の日が一致（馬番={num}, 日={day}）")
@@ -70,7 +62,7 @@ def check_match(row):
     return matches if matches else None
 
 
-# ====== データ読み込み（サンプル: CSVやGoogleスプレッドシートから取得可） ======
+# ====== データ読み込み（サンプル） ======
 data = [
     {"馬名": "アルマーザアミール", "レース名": "中山4R", "馬番": 10, "前走着順": 10, "誕生日": "2021/01/27"},
     {"馬名": "エコロマーベリック", "レース名": "中山4R", "馬番": 12, "前走着順": 12, "誕生日": "2020/03/24"},
@@ -85,12 +77,12 @@ for _, row in df.iterrows():
         with st.container():
             st.markdown(
                 f"""
-                <div style='padding:15px; margin:10px 0; border-radius:12px; background-color:#1e1e1e; box-shadow:0 2px 5px rgba(0,0,0,0.2)'>
-                    <h2 style='color:#f8f8f8'>🐴 {row['馬名']}</h2>
-                    <p>📍 レース名: <b>{row['レース名']}</b></p>
-                    <p>🔢 馬番: <b>{int(row['馬番'])}</b></p>
-                    <p>🏁 前走着順: <b>{row['前走着順']}</b></p>
-                    <p>🎂 誕生日: <b>{row['誕生日']}</b></p>
+                <div style='padding:20px; margin:15px 0; border-radius:15px; background-color:#2c2c2c; box-shadow:0 3px 8px rgba(0,0,0,0.3)'>
+                    <h2 style='color:#f8f8f8; margin-bottom:5px;'>🐴 {row['馬名']}</h2>
+                    <h4 style='color:#cccccc; margin-top:0;'>📍 {row['レース名']}</h4>
+                    <p style='color:#bbbbbb;'>🔢 馬番: <b style='color:#ffffff;'>{int(row['馬番'])}</b></p>
+                    <p style='color:#bbbbbb;'>🏁 前走着順: <b style='color:#ffffff;'>{row['前走着順']}</b></p>
+                    <p style='color:#bbbbbb;'>🎂 誕生日: <b style='color:#ffffff;'>{row['誕生日']}</b></p>
                 </div>
                 """,
                 unsafe_allow_html=True
@@ -99,7 +91,7 @@ for _, row in df.iterrows():
             for match in matches:
                 st.markdown(
                     f"""
-                    <div style='padding:10px; margin:5px 0; border-radius:10px; background-color:#204d38; color:#e6ffe6; font-weight:bold'>
+                    <div style='padding:12px; margin:6px 0; border-radius:10px; background-color:#20603c; color:#e6ffe6; font-weight:bold;'>
                         {match}
                     </div>
                     """,
