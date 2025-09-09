@@ -20,8 +20,18 @@ df = load_data()
 # -------------------------------
 def check_match(row):
     horse = row["馬名"]
-    num = int(row["馬番"])
-    prev = int(row["前走着順"]) if not pd.isna(row["前走着順"]) else None
+
+    # 馬番を整数に変換（失敗したらスキップ）
+    try:
+        num = int(row["馬番"])
+    except (ValueError, TypeError):
+        return None
+
+    # 前走着順も安全に変換
+    try:
+        prev = int(row["前走着順"])
+    except (ValueError, TypeError):
+        prev = None
 
     # 誕生日処理
     birthday = str(row["誕生日"]).replace("月", "-").replace("日", "").strip()
