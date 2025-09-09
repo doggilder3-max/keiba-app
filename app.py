@@ -19,7 +19,7 @@ def load_data():
 
 df = load_data()
 df.columns = df.columns.str.strip()  # カラム名の前後の空白を削除
-st.write("📋 データのカラム名:", df.columns.tolist())  # デバッグ用
+# st.write("📋 データのカラム名:", df.columns.tolist())  # ← デバッグ用は不要なら消してOK
 
 # ======================
 # 🔽 判定ロジック
@@ -73,34 +73,26 @@ def check_match(row):
 # ======================
 # 🔽 レース選択（セレクトボックス）
 # ======================
-if "レース名" in df.columns:
-    races = sorted(df["レース名"].dropna().unique())
-    selected_race = st.selectbox("📌 レースを選択してください", races)
+races = sorted(df["レース名"].dropna().unique())
+selected_race = st.selectbox("📌 レースを選択してください", races)
 
-    race_data = df[df["レース名"] == selected_race]
+race_data = df[df["レース名"] == selected_race]
 
-    st.subheader(f"🏆 {selected_race}")
+st.subheader(f"🏆 {selected_race}")
 
-    any_match = False
-    for _, row in race_data.iterrows():
-        result = check_match(row)
-        if result:
-            any_match = True
-            st.markdown(f"""
-            🐴 **{row['馬名']}**
-            🔢 馬番: {int(float(row['馬番'])) if pd.notna(row['馬番']) else '-'}
-            🏁 前走着順: {row['前走着順'] if pd.notna(row['前走着順']) else '-'}
-            🎂 誕生日: {row['誕生日']}
-            """)
-            for line in result:
-                st.success(line)
-
-    if not any_match:
-        st.info("一致する馬は見つかりませんでした。")
-
-else:
-    st.error("❌ データに『レース名』カラムが存在しません。")
+any_match = False
+for _, row in race_data.iterrows():
+    result = check_match(row)
+    if result:
+        any_match = True
+        st.markdown(f"""
+        🐴 **{row['馬名']}**
+        🔢 馬番: {int(float(row['馬番'])) if pd.notna(row['馬番']) else '-'}
+        🏁 前走着順: {row['前走着順'] if pd.notna(row['前走着順']) else '-'}
+        🎂 誕生日: {row['誕生日']}
+        """)
+        for line in result:
+            st.success(line)
 
 if not any_match:
     st.info("一致する馬は見つかりませんでした。")
-
