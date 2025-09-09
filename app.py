@@ -1,77 +1,74 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 
 st.set_page_config(page_title="競馬判定アプリ", layout="wide")
+
 st.title("🏇 競馬判定アプリ")
 
-def calc_digits(birthday):
-    try:
-        date = datetime.strptime(birthday, "%Y/%m/%d")
-    except:
-        return None, None, None, None
-    md_str = f"{date.month}{date.day}"
-    total = sum(int(d) for d in md_str)
-    digit_sum = total
-    while digit_sum >= 10:
-        digit_sum = sum(int(d) for d in str(digit_sum))
-    return total, digit_sum, date.day, date.month
+# 🔽 公開済みスプレッドシートのCSVリンク
+CSV_URL = "https://docs.google.com/spreadsheets/d/1zZRXYBtqMMw8vSPoRnstItUOXGEkIRa3Gt8eu89V4MU/export?format=csv"
 
-def check_match(row):
-    try:
-        num = int(float(row["馬番"]))
-    except:
-        return None
-    try:
-        prev = int(row["前走着順"])
-    except:
-        prev = None
-    total, digit_sum, day, month = calc_digits(row["誕生日"])
-    if total is None:
-        return None
-
-    matches = []
-    if prev and num == prev:
-        matches.append(f"🏆 馬番と前走着順が一致（馬番={num}, 前走着順={prev}）")
-    if num == total:
-        matches.append(f"🎯 馬番と誕生日の合計が一致（馬番={num}, 月日合計={total}）")
-    if num == digit_sum:
-        matches.append(f"✨ 馬番と誕生日の数字合計が一致（馬番={num}, 一桁合計={digit_sum}）")
-    if num == day:
-        matches.append(f"📅 馬番と誕生日の日が一致（馬番={num}, 日={day}）")
-    if num == (day % 10):
-        matches.append(f"🔢 馬番と誕生日の日の一桁が一致（馬番={num}, 一桁={day % 10}）")
-    return matches or None
-
-@st.cache_data(ttl=60)
+# スプレッドシート読み込み
+@st.cache_data(ttl=60)  # 60秒ごとに更新
 def load_data():
-    url = "https://docs.google.com/spreadsheets/d/e/2PACX-1v…/export?format=csv&gid=0"
-    return pd.read_csv(url)
+    return pd.read_csv(CSV_URL)
 
 df = load_data()
 
-for _, row in df.iterrows():
-    matches = check_match(row)
-    if matches:
-        with st.container():
-            st.markdown(
-                f"""
-                <div style='padding:20px; margin:15px 0; border-radius:15px;
-                            background-color:#2c2c2c; box-shadow:0 3px 8px rgba(0,0,0,0.3)'>
-                    <h2 style='color:#f8f8f8; margin-bottom:5px;'>🐴 {row['馬名']}</h2>
-                    <h4 style='color:#cccccc; margin-top:0;'>📍 {row['レース名']}</h4>
-                    <p style='color:#bbbbbb;'>🔢 馬番: <b style='color:#ffffff;'>{int(row['馬番'])}</b></p>
-                    <p style='color:#bbbbbb;'>🏁 前走着順: <b style='color:#ffffff;'>{row['前走着順']}</b></p>
-                    <p style='color:#bbbbbb;'>🎂 誕生日: <b style='color:#ffffff;'>{row['誕生日']}</b></p>
-                </div>
-                """, unsafe_allow_html=True
-            )
-            for match in matches:
-                st.markdown(
-                    f"""
-                    <div style='padding:12px; margin:6px 0; border-radius:10px;
-                                background-color:#20603c; color:#e6ffe6; font-weight:bold;'>
-                        {match}
-                    </div>
-                    """, unsafe_allow_html=True
-                )
+# -------------------------------
+# 🔽 判定ロジック
+# -------------------------------
+def check_match(row):
+    horse = row["馬名"]
+    num = int(row["馬番"])
+    prev = int(row["前走着順"]) if not pd.isna(row["前走着順"]) else None
+
+    # 誕生日処理
+    birthday = str(row["誕生日"]).replace("月", "-").replace("日", "").strip()
+    try:
+        month, day = map(int, birthday.split("-"))
+    except:
+        return None  # 形式が違う場合スキップ
+
+    matches = []
+
+    # 馬番 = 前走着順
+    if prev and num == prev:
+        matches.append(f"{horse} → ✅ 前走着順と馬番が一致（馬番={num}, 前走着順={prev}）")
+
+    # 馬番 = 月+日（合計値）
+    total = month + day
+    if num == total:
+        matches.append(f"{horse} → ✅ 誕生日の月+日と馬番が一致（馬番={num}, {month}+{day}={total}）")
+
+    # 馬番 = 誕生日の各桁合計
+    digit_sum = sum(int(d) for d in str(month) + str(day))
+    if num == digit_sum:
+        matches.append(f"{horse} → ✅ 誕生日の数字合計と馬番が一致（馬番={num}, {month}+{''.join(list(str(day)))}={digit_sum}）")
+
+    # 馬番 = 日そのもの
+    if num == day:
+        matches.append(f"{horse} → ✅ 誕生日の日と馬番が一致（馬番={num}, 日={day}）")
+
+    # 馬番 = 日の一桁
+    if num == (day % 10):
+        matches.append(f"{horse} → ✅ 誕生日の日の一桁と馬番が一致（馬番={num}, 日の一桁={day % 10}）")
+
+    return matches if matches else None
+
+# -------------------------------
+# 🔽 レースごとに表示
+# -------------------------------
+for race, group in df.groupby("レース名"):
+    st.subheader(f"🏆 {race}")
+
+    any_match = False
+    for _, row in group.iterrows():
+        result = check_match(row)
+        if result:
+            any_match = True
+            for line in result:
+                st.success(line)
+
+    if not any_match:
+        st.info("一致する馬は見つかりませんでした。")
