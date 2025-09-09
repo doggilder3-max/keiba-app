@@ -62,13 +62,14 @@ def check_match(row):
     return matches if matches else None
 
 
-# ====== データ読み込み（サンプル） ======
-data = [
-    {"馬名": "アルマーザアミール", "レース名": "中山4R", "馬番": 10, "前走着順": 10, "誕生日": "2021/01/27"},
-    {"馬名": "エコロマーベリック", "レース名": "中山4R", "馬番": 12, "前走着順": 12, "誕生日": "2020/03/24"},
-]
+# ====== データ読み込み（GoogleスプレッドシートのCSV） ======
+@st.cache_data(ttl=60)  # 60秒キャッシュ → 1分以内に自動更新
+def load_data():
+    url = "https://docs.google.com/spreadsheets/d/【スプレッドシートID】/gviz/tq?tqx=out:csv&sheet=【シート名】"
+    return pd.read_csv(url)
 
-df = pd.DataFrame(data)
+df = load_data()
+
 
 # ====== 表示部分 ======
 for _, row in df.iterrows():
