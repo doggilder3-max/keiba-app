@@ -1,14 +1,16 @@
 import streamlit as st
 import pandas as pd
+import re
 
 st.set_page_config(page_title="競馬判定アプリ", layout="wide")
-
 st.title("🏇 競馬判定アプリ")
 
 # 🔽 公開済みスプレッドシートのCSVリンク
 CSV_URL = "https://docs.google.com/spreadsheets/d/1zZRXYBtqMMw8vSPoRnstItUOXGEkIRa3Gt8eu89V4MU/export?format=csv"
 
-# スプレッドシート読み込み
+# -------------------------------
+# 🔽 データ読み込み
+# -------------------------------
 @st.cache_data(ttl=60)  # 60秒ごとに更新
 def load_data():
     return pd.read_csv(CSV_URL)
@@ -21,7 +23,7 @@ df = load_data()
 def check_match(row):
     horse = row["馬名"]
 
-    # 馬番（空欄ならスキップ）
+    # 馬番
     try:
         num = int(float(row["馬番"]))
     except:
@@ -34,64 +36,58 @@ def check_match(row):
         prev = None
 
     # 誕生日処理
+    birthday = str(row["誕生日"]).replace("月", "-").replace("日", "").strip()
     try:
-        birthday = str(row["誕生日"]).replace("月", "-").replace("日", "").strip()
-        if "/" in birthday:
-            _, month, day = birthday.split("/")
-        else:
-            month, day = birthday.split("-")
-        month, day = int(month), int(day)
+        # "2021/05/06" 形式
+        year, month, day = map(int, birthday.split("/"))
     except:
-        return None  # 誕生日形式が不正ならスキップ
+        try:
+            # "5-6" 形式
+            month, day = map(int, birthday.split("-"))
+        except:
+            return None
 
     matches = []
 
     # 馬番 = 前走着順
     if prev and num == prev:
-        matches.append(f"前走着順と馬番が一致（馬番={num}, 前走着順={prev}）")
+        matches.append(f"{horse} → ✅ 前走着順と馬番が一致（馬番={num}, 前走着順={prev}）")
 
     # 馬番 = 月+日（合計値）
     total = month + day
-    match_month_day = None
     if num == total:
-        match_month_day = f"誕生日の月+日と馬番が一致（{month}+{day}={total}）"
+        matches.append(f"{horse} → ✅ 誕生日の月+日と馬番が一致（{month}+{day}={total}）")
 
-    # 馬番 = 誕生日の各桁合計（計算式表示付き）
+    # 馬番 = 誕生日の各桁合計（ただし月+日と同じ結果ならスキップ）
     digit_parts = [int(d) for d in str(month) + str(day)]
     digit_sum = sum(digit_parts)
-    match_digit_sum = None
-    if num == digit_sum:
+    if num == digit_sum and num != total:
         parts_str = "＋".join(str(d) for d in digit_parts)
-        match_digit_sum = f"誕生日の数字合計と馬番が一致（{parts_str}={digit_sum}）"
-
-    # 👉 ここで重複チェック
-    if match_month_day and match_digit_sum and match_month_day.split("（")[1] == match_digit_sum.split("（")[1]:
-        matches.append(match_month_day)  # 片方だけ残す
-    else:
-        if match_month_day:
-            matches.append(match_month_day)
-        if match_digit_sum:
-            matches.append(match_digit_sum)
+        matches.append(f"{horse} → ✅ 誕生日の数字合計と馬番が一致（{parts_str}={digit_sum}）")
 
     # 馬番 = 日そのもの
     if num == day:
-        matches.append(f"誕生日の日と馬番が一致（日={day}）")
+        matches.append(f"{horse} → ✅ 誕生日の日と馬番が一致（馬番={num}, 日={day}）")
 
     # 馬番 = 日の一桁
     if num == (day % 10):
-        matches.append(f"誕生日の日の一桁と馬番が一致（日の一桁={day % 10}）")
+        matches.append(f"{horse} → ✅ 誕生日の日の一桁と馬番が一致（馬番={num}, 日の一桁={day % 10}）")
 
     return matches if matches else None
 
 # -------------------------------
-# 🔽 レースごとに表示（番号順）
+# 🔽 レース番号でソートするための関数
 # -------------------------------
 def extract_race_number(race_name):
-    import re
-    match = re.search(r'(\d+)R', str(race_name))
-    return int(match.group(1)) if match else 9999
+    match = re.search(r"(\d+)R", str(race_name))
+    return int(match.group(1)) if match else 999  # 数字が取れない場合は後ろ
 
-for race, group in sorted(df.groupby("レース名"), key=lambda x: extract_race_number(x[0])):
+# -------------------------------
+# 🔽 レースごとに表示（番号順ソート）
+# -------------------------------
+for race in sorted(df["レース名"].dropna().unique(), key=extract_race_number):
+    group = df[df["レース名"] == race]
+
     st.subheader(f"🏆 {race}")
 
     any_match = False
@@ -99,12 +95,14 @@ for race, group in sorted(df.groupby("レース名"), key=lambda x: extract_race
         result = check_match(row)
         if result:
             any_match = True
-            st.markdown(f"""
-                ### 🐴 {row['馬名']}
-                🔢 馬番: {int(float(row['馬番'])) if pd.notna(row['馬番']) else '不明'}  
-                🏁 前走着順: {int(float(row['前走着順'])) if pd.notna(row['前走着順']) else '不明'}  
-                🎂 誕生日: {row['誕生日']}
-            """)
+            st.markdown(
+                f"""
+                🐴 **{row['馬名']}**  
+                🔢 馬番: {int(float(row['馬番'])) if not pd.isna(row['馬番']) else '不明'}  
+                🏁 前走着順: {int(float(row['前走着順'])) if not pd.isna(row['前走着順']) else '不明'}  
+                🎂 誕生日: {row['誕生日']}  
+                """
+            )
             for line in result:
                 st.success(line)
 
