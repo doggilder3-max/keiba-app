@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import datetime
 
 st.set_page_config(page_title="競馬判定アプリ", layout="wide")
 
@@ -8,7 +9,9 @@ st.title("🏇 競馬判定アプリ")
 # 🔽 公開済みスプレッドシートのCSVリンク
 CSV_URL = "https://docs.google.com/spreadsheets/d/1zZRXYBtqMMw8vSPoRnstItUOXGEkIRa3Gt8eu89V4MU/export?format=csv"
 
-# スプレッドシート読み込み
+# -------------------------------
+# 🔽 データ読み込み
+# -------------------------------
 @st.cache_data(ttl=60)  # 60秒ごとに更新
 def load_data():
     return pd.read_csv(CSV_URL)
@@ -16,19 +19,43 @@ def load_data():
 df = load_data()
 
 # -------------------------------
+# 🔽 ヘルパー関数
+# -------------------------------
+def safe_int(value):
+    """数値に変換できれば int を返し、できなければ None"""
+    try:
+        return int(float(str(value).strip()))
+    except:
+        return None
+
+# -------------------------------
 # 🔽 判定ロジック
 # -------------------------------
 def check_match(row):
     horse = row["馬名"]
-    num = int(row["馬番"])
-    prev = int(row["前走着順"]) if not pd.isna(row["前走着順"]) else None
+
+    # 馬番
+    num = safe_int(row["馬番"])
+    if num is None:
+        return None
+
+    # 前走着順
+    prev = safe_int(row["前走着順"])
 
     # 誕生日処理
-    birthday = str(row["誕生日"]).replace("月", "-").replace("日", "").strip()
+    birthday = str(row["誕生日"]).strip()
+    month, day = None, None
     try:
-        month, day = map(int, birthday.split("-"))
+        # 例: 2021/01/27
+        dt = datetime.datetime.strptime(birthday, "%Y/%m/%d")
+        month, day = dt.month, dt.day
     except:
-        return None  # 形式が違う場合スキップ
+        try:
+            # 例: 1月27日
+            birthday = birthday.replace("月", "-").replace("日", "")
+            month, day = map(int, birthday.split("-"))
+        except:
+            return None  # 誕生日が解釈できない場合はスキップ
 
     matches = []
 
@@ -44,7 +71,7 @@ def check_match(row):
     # 馬番 = 誕生日の各桁合計
     digit_sum = sum(int(d) for d in str(month) + str(day))
     if num == digit_sum:
-        matches.append(f"{horse} → ✅ 誕生日の数字合計と馬番が一致（馬番={num}, {month}+{''.join(list(str(day)))}={digit_sum}）")
+        matches.append(f"{horse} → ✅ 誕生日の数字合計と馬番が一致（馬番={num}, 合計={digit_sum}）")
 
     # 馬番 = 日そのもの
     if num == day:
@@ -52,7 +79,7 @@ def check_match(row):
 
     # 馬番 = 日の一桁
     if num == (day % 10):
-        matches.append(f"{horse} → ✅ 誕生日の日の一桁と馬番が一致（馬番={num}, 日の一桁={day % 10}）")
+        matches.append(f"{horse} → ✅ 誕生日の日の一桁と馬番が一致（馬番={num}, 一桁={day % 10}）")
 
     return matches if matches else None
 
