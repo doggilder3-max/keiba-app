@@ -1,91 +1,74 @@
 import streamlit as st
 import pandas as pd
-import datetime
 
-st.set_page_config(page_title="競馬アプリ", layout="wide")
+st.set_page_config(page_title="競馬判定アプリ", layout="wide")
 
 st.title("🏇 競馬判定アプリ")
 
-# ✅ GoogleスプレッドシートのCSV URL
-sheet_url = "https://docs.google.com/spreadsheets/d/1zZRXYBtqMMw8vSPoRnstItUOXGEkIRa3Gt8eu89V4MU/export?format=csv"
+# 🔽 公開済みスプレッドシートのCSVリンク
+CSV_URL = "https://docs.google.com/spreadsheets/d/1zZRXYBtqMMw8vSPoRnstItUOXGEkIRa3Gt8eu89V4MU/export?format=csv"
 
-# ✅ CSV読み込み
-df = pd.read_csv(sheet_url)
+# スプレッドシート読み込み
+@st.cache_data(ttl=60)  # 60秒ごとに更新
+def load_data():
+    return pd.read_csv(CSV_URL)
 
-# 判定結果を保存
-all_results = []
+df = load_data()
 
-# ✅ 判定処理
-for idx, row in df.iterrows():
+# -------------------------------
+# 🔽 判定ロジック
+# -------------------------------
+def check_match(row):
+    horse = row["馬名"]
+    num = int(row["馬番"])
+    prev = int(row["前走着順"]) if not pd.isna(row["前走着順"]) else None
+
+    # 誕生日処理
+    birthday = str(row["誕生日"]).replace("月", "-").replace("日", "").strip()
     try:
-        race_name = str(row["レース名"]).strip()
-        horse_name = str(row["馬名"]).strip()
-        uma_num = str(row["馬番"]).replace(" ", "").replace("　", "")
-        prev_rank = str(row["前走着順"]).replace(" ", "").replace("　", "")
-        birthday_raw = str(row["誕生日"]).strip()
+        month, day = map(int, birthday.split("-"))
+    except:
+        return None  # 形式が違う場合スキップ
 
-        if not uma_num.isdigit():
-            continue
+    matches = []
 
-        uma_num = int(uma_num)
+    # 馬番 = 前走着順
+    if prev and num == prev:
+        matches.append(f"{horse} → ✅ 前走着順と馬番が一致（馬番={num}, 前走着順={prev}）")
 
-        # 誕生日処理
-        birthday = None
-        if birthday_raw and birthday_raw.lower() != "nan":
-            try:
-                birthday = pd.to_datetime(birthday_raw, errors="coerce")
-            except:
-                birthday = None
+    # 馬番 = 月+日（合計値）
+    total = month + day
+    if num == total:
+        matches.append(f"{horse} → ✅ 誕生日の月+日と馬番が一致（馬番={num}, {month}+{day}={total}）")
 
-        # 一致条件チェック
-        matches = []
+    # 馬番 = 誕生日の各桁合計
+    digit_sum = sum(int(d) for d in str(month) + str(day))
+    if num == digit_sum:
+        matches.append(f"{horse} → ✅ 誕生日の数字合計と馬番が一致（馬番={num}, {month}+{''.join(list(str(day)))}={digit_sum}）")
 
-        # ① 馬番 = 前走着順
-        if prev_rank.isdigit() and uma_num == int(prev_rank):
-            matches.append(f"前走着順と馬番が一致（{uma_num}）")
+    # 馬番 = 日そのもの
+    if num == day:
+        matches.append(f"{horse} → ✅ 誕生日の日と馬番が一致（馬番={num}, 日={day}）")
 
-        if birthday is not None:
-            m, d = birthday.month, birthday.day
+    # 馬番 = 日の一桁
+    if num == (day % 10):
+        matches.append(f"{horse} → ✅ 誕生日の日の一桁と馬番が一致（馬番={num}, 日の一桁={day % 10}）")
 
-            # ② 馬番 = 誕生日の月+日（桁ごと合計）
-            digit_sum = sum(int(x) for x in str(m) + str(d))
-            if uma_num == digit_sum:
-                matches.append(f"誕生日の月+日と馬番が一致（{m}月{d}日 → {digit_sum}）")
+    return matches if matches else None
 
-            # ③ 馬番 = 誕生日の日
-            if uma_num == d:
-                matches.append(f"誕生日の日と馬番が一致（{m}月{d}日）")
+# -------------------------------
+# 🔽 レースごとに表示
+# -------------------------------
+for race, group in df.groupby("レース名"):
+    st.subheader(f"🏆 {race}")
 
-            # ④ 馬番 = 誕生日の日の一桁
-            if uma_num == (d % 10):
-                matches.append(f"誕生日の日の一桁と馬番が一致（{m}月{d}日 → {d % 10}）")
+    any_match = False
+    for _, row in group.iterrows():
+        result = check_match(row)
+        if result:
+            any_match = True
+            for line in result:
+                st.success(line)
 
-        # ✅ 一致があれば保存
-        if matches:
-            all_results.append({
-                "race": race_name,
-                "horse": horse_name,
-                "uma": uma_num,
-                "results": " / ".join(matches)
-            })
-
-    except Exception as e:
-        continue
-
-# ✅ レースごとに区切って表示
-if all_results:
-    result_df = pd.DataFrame(all_results)
-
-    for race in result_df["race"].unique():
-        st.subheader(f"📌 {race}")
-        race_df = result_df[result_df["race"] == race]
-
-        for _, r in race_df.iterrows():
-            st.markdown(f"""
-            <div style="border:2px solid #4CAF50; padding:15px; margin:10px; border-radius:10px; background:#f9fff9;">
-                <h3>🐴 {r['horse']}（馬番 {r['uma']}）</h3>
-                <p style="font-size:18px; color:#333;">✅ {r['results']}</p>
-            </div>
-            """, unsafe_allow_html=True)
-else:
-    st.warning("⚠ 一致する判定結果はありませんでした。")
+    if not any_match:
+        st.info("一致する馬は見つかりませんでした。")
