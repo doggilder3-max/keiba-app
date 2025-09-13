@@ -69,9 +69,9 @@ def check_match(row):
     if num == day:
         matches.append(f"{horse} → ✅ 誕生日の日と馬番が一致（馬番={num}, 日={day}）")
 
-    # 馬番 = 日の一桁
-    if num == (day % 10):
-        matches.append(f"{horse} → ✅ 誕生日の日の一桁と馬番が一致（馬番={num}, 日の一桁={day % 10}）")
+    # 馬番 = 日の一桁（ただし日が1桁のときのみ判定）
+    if day < 10 and num == day:
+        matches.append(f"{horse} → ✅ 誕生日の日の一桁と馬番が一致（馬番={num}, 日={day}）")
 
     return matches if matches else None
 
@@ -108,3 +108,4 @@ for race in sorted(df["レース名"].dropna().unique(), key=extract_race_number
 
     if not any_match:
         st.info("一致する馬は見つかりませんでした。")
+
