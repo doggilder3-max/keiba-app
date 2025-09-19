@@ -42,6 +42,7 @@ def check_password():
     else:
         return True
 
+
 # ===================================
 # 📊 データ読み込み
 # ===================================
@@ -49,10 +50,8 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/1zZRXYBtqMMw8vSPoRnstItUOXGEkI
 
 @st.cache_data(ttl=60)
 def load_data():
-    df = pd.read_csv(CSV_URL)
-    # 空欄レース名を前行で埋める
-    df["レース名"] = df["レース名"].fillna(method="ffill")
-    return df
+    return pd.read_csv(CSV_URL)
+
 
 # ===================================
 # 🏇 判定ロジック
@@ -102,12 +101,14 @@ def check_match(row):
 
     return matches if matches else None
 
+
 # ===================================
 # 🔢 レース番号ソート用
 # ===================================
 def extract_race_number(race_name):
     match = re.search(r"(\d+)R", str(race_name))
     return int(match.group(1)) if match else 999
+
 
 # ===================================
 # 🖥️ メインアプリ
@@ -150,3 +151,4 @@ if check_password():
 
     if st.button("🚪 ログアウト"):
         st.session_state.clear()
+        st.experimental_rerun()
