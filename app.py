@@ -16,7 +16,7 @@ def load_data():
         return pd.DataFrame()
 
 # ===================================
-# 🏇 判定ロジック
+# 判定ロジック
 # ===================================
 def check_match(row):
     horse = row["馬名"]
@@ -43,47 +43,61 @@ def check_match(row):
     matches = []
 
     if prev and num == prev:
-        matches.append(f"{horse} → ✅ 前走着順と馬番が一致（馬番={num}, 前走着順={prev}）")
+        matches.append(f"{horse} - 前走着順と馬番が一致 (馬番={num}, 前走着順={prev})")
 
     total = month + day
     if num == total:
-        matches.append(f"{horse} → ✅ 誕生日の月+日と馬番が一致（{month}+{day}={total}）")
+        matches.append(f"{horse} - 誕生日の月+日と馬番が一致 ({month}+{day}={total})")
 
     digit_parts = [int(d) for d in str(month) + str(day)]
     digit_sum = sum(digit_parts)
     if num == digit_sum and num != total:
         parts_str = "＋".join(str(d) for d in digit_parts)
-        matches.append(f"{horse} → ✅ 誕生日の数字合計と馬番が一致（{parts_str}={digit_sum}）")
+        matches.append(f"{horse} - 誕生日の数字合計と馬番が一致 ({parts_str}={digit_sum})")
 
     if num == day:
-        matches.append(f"{horse} → ✅ 誕生日の日と馬番が一致（馬番={num}, 日={day}）")
+        matches.append(f"{horse} - 誕生日の日と馬番が一致 (馬番={num}, 日={day})")
 
     if day < 10 and num == day:
-        matches.append(f"{horse} → ✅ 誕生日が一桁の日と馬番が一致（馬番={num}, 日={day}）")
+        matches.append(f"{horse} - 誕生日が一桁の日と馬番が一致 (馬番={num}, 日={day})")
 
     return matches if matches else None
 
 # ===================================
-# 🔢 レース番号ソート用
+# レース番号ソート用
 # ===================================
 def extract_race_number(race_name):
     match = re.search(r"(\d+)R", str(race_name))
     return int(match.group(1)) if match else 999
 
 # ===================================
-# 🖥️ メインアプリ
+# メインアプリ
 # ===================================
 st.set_page_config(page_title="競馬判定アプリ", layout="wide")
-st.title("🏇 競馬判定アプリ")
+st.title("競馬判定アプリ")
 
+# 説明・有料誘導スペース
+st.info("競馬判定アプリへようこそ。必要に応じて有料版で過去データのまとめダウンロードが可能です。")
+
+# データ読み込み
 df = load_data()
 if df.empty:
     st.stop()
 
+# 検索・フィルター
+search_horse = st.text_input("馬名検索 (部分一致可)")
+race_filter = st.selectbox("レースを選択", ["全レース"] + sorted(df["レース名"].dropna().unique(), key=extract_race_number))
+
+if race_filter != "全レース":
+    df = df[df["レース名"] == race_filter]
+if search_horse:
+    df = df[df["馬名"].str.contains(search_horse, case=False, na=False)]
+
+# レースごとのアコーディオン表示
 for race in sorted(df["レース名"].dropna().unique(), key=extract_race_number):
     group = df[df["レース名"] == race]
 
-    with st.expander(f"🏆 {race} の詳細"):
+    with st.expander(f"{race} の詳細"):
         any_match = False
         for _, row in group.iterrows():
             result = check_match(row)
@@ -91,10 +105,7 @@ for race in sorted(df["レース名"].dropna().unique(), key=extract_race_number
                 any_match = True
                 st.markdown(
                     f"""
-                    🐴 **{row['馬名']}**  
-                    🔢 馬番: {int(float(row['馬番'])) if not pd.isna(row['馬番']) else '不明'}  
-                    🏁 前走着順: {int(float(row['前走着順'])) if not pd.isna(row['前走着順']) else '不明'}  
-                    🎂 誕生日: {row['誕生日']}  
+                    **馬名:** {row['馬名']}  |  **馬番:** {int(float(row['馬番'])) if not pd.isna(row['馬番']) else '不明'}  |  **前走着順:** {int(float(row['前走着順'])) if not pd.isna(row['前走着順']) else '不明'}  |  **誕生日:** {row['誕生日']}
                     """
                 )
                 for line in result:
@@ -102,3 +113,7 @@ for race in sorted(df["レース名"].dropna().unique(), key=extract_race_number
         if not any_match:
             st.info("一致する馬は見つかりませんでした。")
 
+# データ再読み込みボタン
+if st.button("データ再読み込み"):
+    st.cache_data.clear()
+    st.experimental_rerun()
