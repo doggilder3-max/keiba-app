@@ -3,23 +3,29 @@ import pandas as pd
 import re
 
 # ===================================
-# データ読み込み（GoogleスプレッドシートCSV形式想定）
+# データ読み込み（GoogleスプレッドシートCSV形式）
 # ===================================
-SHEET_URL = "スプレッドシートURL"  # 1つのスプレッドシートのCSVエクスポートリンク
+SHEET_URL = "スプレッドシートCSV公開URL"  # GoogleスプレッドシートをCSV公開したURL
 MAIN_SHEET_NAME = "Sheet1"  # 元データシート名
 PREDICT_SHEET_NAME = "Sheet2"  # 予想・結果シート名
 
 @st.cache_data(ttl=60)
-def load_sheet(sheet_url, sheet_name):
+def load_sheet(sheet_url, sheet_name, predict=False):
     try:
         url = f"{sheet_url}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
-        return pd.read_csv(url)
+        df = pd.read_csv(url)
+        # Sheet2が空の場合は列だけ定義して空DataFrameにする
+        if predict and df.empty:
+            df = pd.DataFrame(columns=["レース名", "馬名", "予想印", "コメント", "結果"])
+        return df
     except Exception as e:
-        st.error(f"{sheet_name} 読み込み失敗: {e}")
+        st.warning(f"{sheet_name} 読み込み失敗: {e}")
+        if predict:
+            return pd.DataFrame(columns=["レース名", "馬名", "予想印", "コメント", "結果"])
         return pd.DataFrame()
 
 df_main = load_sheet(SHEET_URL, MAIN_SHEET_NAME)
-df_predict = load_sheet(SHEET_URL, PREDICT_SHEET_NAME)
+df_predict = load_sheet(SHEET_URL, PREDICT_SHEET_NAME, predict=True)
 
 # ===================================
 # 判定ロジック
@@ -83,6 +89,7 @@ st.set_page_config(page_title="競馬判定＆予想アプリ", layout="wide")
 st.title("競馬判定＆予想アプリ")
 
 if df_main.empty:
+    st.warning("元データが読み込めません。")
     st.stop()
 
 # 検索・フィルター
@@ -123,7 +130,7 @@ for race in sorted(df_display['レース名'].dropna().unique(), key=extract_rac
                 for line in matches:
                     st.success(line)
 
-            # 予想・コメント・結果
+            # 予想・コメント・結果（Sheet2が空でもエラーにならない）
             st.markdown(
                 f"**予想印:** {row.get('予想印', '')}  |  **コメント:** {row.get('コメント', '')}  |  **結果:** {row.get('結果', '')}"
             )
@@ -132,3 +139,4 @@ for race in sorted(df_display['レース名'].dropna().unique(), key=extract_rac
 if st.button("データ再読み込み"):
     st.cache_data.clear()
     st.experimental_rerun()
+
