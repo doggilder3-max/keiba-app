@@ -76,9 +76,6 @@ def extract_race_number(race_name):
 st.set_page_config(page_title="競馬判定アプリ", layout="wide")
 st.title("競馬判定アプリ")
 
-# 説明・有料誘導スペース
-st.info("競馬判定アプリへようこそ。必要に応じて有料版で過去データのまとめダウンロードが可能です。")
-
 # データ読み込み
 df = load_data()
 if df.empty:
@@ -117,5 +114,4 @@ for race in sorted(df["レース名"].dropna().unique(), key=extract_race_number
 if st.button("データ再読み込み"):
     st.cache_data.clear()
     st.experimental_rerun()
-
 
