@@ -3,29 +3,17 @@ import pandas as pd
 import re
 
 # ===================================
-# データ読み込み（GoogleスプレッドシートCSV形式）
+# 📊 データ読み込み
 # ===================================
-SHEET_URL = "スプレッドシートCSV公開URL"  # GoogleスプレッドシートをCSV公開したURL
-MAIN_SHEET_NAME = "Sheet1"  # 元データシート名
-PREDICT_SHEET_NAME = "Sheet2"  # 予想・結果シート名
+CSV_URL = "https://docs.google.com/spreadsheets/d/1zZRXYBtqMMw8vSPoRnstItUOXGEkIRa3Gt8eu89V4MU/export?format=csv"
 
 @st.cache_data(ttl=60)
-def load_sheet(sheet_url, sheet_name, predict=False):
+def load_data():
     try:
-        url = f"{sheet_url}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
-        df = pd.read_csv(url)
-        # Sheet2が空の場合は列だけ定義して空DataFrameにする
-        if predict and df.empty:
-            df = pd.DataFrame(columns=["レース名", "馬名", "予想印", "コメント", "結果"])
-        return df
+        return pd.read_csv(CSV_URL)
     except Exception as e:
-        st.warning(f"{sheet_name} 読み込み失敗: {e}")
-        if predict:
-            return pd.DataFrame(columns=["レース名", "馬名", "予想印", "コメント", "結果"])
+        st.error(f"データ読み込み失敗: {e}")
         return pd.DataFrame()
-
-df_main = load_sheet(SHEET_URL, MAIN_SHEET_NAME)
-df_predict = load_sheet(SHEET_URL, PREDICT_SHEET_NAME, predict=True)
 
 # ===================================
 # 判定ロジック
@@ -83,60 +71,51 @@ def extract_race_number(race_name):
     return int(match.group(1)) if match else 999
 
 # ===================================
-# Streamlit表示
+# メインアプリ
 # ===================================
-st.set_page_config(page_title="競馬判定＆予想アプリ", layout="wide")
-st.title("競馬判定＆予想アプリ")
+st.set_page_config(page_title="競馬判定アプリ", layout="wide")
+st.title("競馬判定アプリ")
 
-if df_main.empty:
-    st.warning("元データが読み込めません。")
+# 説明・有料誘導スペース
+st.info("競馬判定アプリへようこそ。必要に応じて有料版で過去データのまとめダウンロードが可能です。")
+
+# データ読み込み
+df = load_data()
+if df.empty:
     st.stop()
 
 # 検索・フィルター
 search_horse = st.text_input("馬名検索 (部分一致可)")
-race_filter = st.selectbox("レースを選択", ["全レース"] + sorted(df_main['レース名'].dropna().unique(), key=extract_race_number))
+race_filter = st.selectbox("レースを選択", ["全レース"] + sorted(df["レース名"].dropna().unique(), key=extract_race_number))
 
-df_filtered = df_main.copy()
 if race_filter != "全レース":
-    df_filtered = df_filtered[df_filtered['レース名'] == race_filter]
+    df = df[df["レース名"] == race_filter]
 if search_horse:
-    df_filtered = df_filtered[df_filtered['馬名'].str.contains(search_horse, case=False, na=False)]
-
-# 判定ロジック適用
-df_filtered['一致'] = df_filtered.apply(lambda row: check_match(row) is not None, axis=1)
-df_matched = df_filtered[df_filtered['一致']]
-
-# 予想・結果シートと結合
-df_display = df_matched.merge(df_predict, on=["レース名", "馬名"], how="left")
+    df = df[df["馬名"].str.contains(search_horse, case=False, na=False)]
 
 # レースごとのアコーディオン表示
-for race in sorted(df_display['レース名'].dropna().unique(), key=extract_race_number):
-    group = df_display[df_display['レース名'] == race]
+for race in sorted(df["レース名"].dropna().unique(), key=extract_race_number):
+    group = df[df["レース名"] == race]
 
     with st.expander(f"{race} の詳細"):
-        if group.empty:
-            st.info("一致する馬は見つかりませんでした。")
-            continue
-
+        any_match = False
         for _, row in group.iterrows():
-            st.markdown(
-                f"**馬名:** {row['馬名']}  |  **馬番:** {int(float(row['馬番'])) if not pd.isna(row['馬番']) else '不明'}  |  "
-                f"**前走着順:** {int(float(row['前走着順'])) if not pd.isna(row['前走着順']) else '不明'}  |  **誕生日:** {row['誕生日']}"
-            )
-
-            # 判定一致内容
-            matches = check_match(row)
-            if matches:
-                for line in matches:
+            result = check_match(row)
+            if result:
+                any_match = True
+                st.markdown(
+                    f"""
+                    **馬名:** {row['馬名']}  |  **馬番:** {int(float(row['馬番'])) if not pd.isna(row['馬番']) else '不明'}  |  **前走着順:** {int(float(row['前走着順'])) if not pd.isna(row['前走着順']) else '不明'}  |  **誕生日:** {row['誕生日']}
+                    """
+                )
+                for line in result:
                     st.success(line)
-
-            # 予想・コメント・結果（Sheet2が空でもエラーにならない）
-            st.markdown(
-                f"**予想印:** {row.get('予想印', '')}  |  **コメント:** {row.get('コメント', '')}  |  **結果:** {row.get('結果', '')}"
-            )
+        if not any_match:
+            st.info("一致する馬は見つかりませんでした。")
 
 # データ再読み込みボタン
 if st.button("データ再読み込み"):
     st.cache_data.clear()
     st.experimental_rerun()
+
 
