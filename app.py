@@ -16,7 +16,7 @@ def load_data():
         return pd.DataFrame()
 
 # ===================================
-# 判定ロジック
+# 🔍 判定ロジック
 # ===================================
 def check_match(row):
     horse = row["馬名"]
@@ -63,15 +63,17 @@ def check_match(row):
 
     return matches if matches else None
 
+
 # ===================================
-# レース番号ソート用
+# 🧮 レース番号ソート用
 # ===================================
 def extract_race_number(race_name):
     match = re.search(r"(\d+)R", str(race_name))
     return int(match.group(1)) if match else 999
 
+
 # ===================================
-# メインアプリ
+# 🏇 メインアプリ
 # ===================================
 st.set_page_config(page_title="競馬判定アプリ", layout="wide")
 st.title("競馬判定アプリ")
@@ -102,7 +104,8 @@ for race in sorted(df["レース名"].dropna().unique(), key=extract_race_number
                 any_match = True
                 st.markdown(
                     f"""
-                    **馬名:** {row['馬名']}  |  **馬番:** {int(float(row['馬番'])) if not pd.isna(row['馬番']) else '不明'}  |  **前走着順:** {int(float(row['前走着順'])) if not pd.isna(row['前走着順']) else '不明'}  |  **誕生日:** {row['誕生日']}
+                    **馬名:** {row['馬名']}  |  **馬番:** {int(float(row['馬番'])) if not pd.isna(row['馬番']) else '不明'}  
+                    **前走着順:** {int(float(row['前走着順'])) if not pd.isna(row['前走着順']) else '不明'}  |  **誕生日:** {row['誕生日']}
                     """
                 )
                 for line in result:
@@ -110,8 +113,9 @@ for race in sorted(df["レース名"].dropna().unique(), key=extract_race_number
         if not any_match:
             st.info("一致する馬は見つかりませんでした。")
 
-# データ再読み込みボタン
+# ===================================
+# 🔁 データ再読み込みボタン
+# ===================================
 if st.button("データ再読み込み"):
     st.cache_data.clear()
-    st.experimental_rerun()
-
+    st.rerun()
